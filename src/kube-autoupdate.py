@@ -89,7 +89,12 @@ def main():
     appsv1 = client.AppsV1Api()
     ret = appsv1.list_deployment_for_all_namespaces(watch=False,label_selector="autoupdate/enabled==true")
     for item in ret.items:
-        check_update("Deployment",item)
+        patch=check_update_and_create_patch("Deployment",item)
+        if patch is not None:
+            result=appsv1.patch_namespaced_deployment(name=item.metadata.name,namespace=item.metadata.namespace,body=patch)
+            print(result)
+
+
 
 def registry_auth(dxf, response):
     dxf.authenticate(response=response)
@@ -113,7 +118,7 @@ def find_current_tag(image,config):
     
     return candidates[0]
 
-def check_update(kind,item):
+def check_update_and_create_patch(kind,item):
     if "autoupdate/config" not in item.metadata.annotations:
         log.warning("Missing annotation 'autoupdate/config' in %s %s"%(kind.lower(),item.metadata.name))
         return
@@ -125,6 +130,8 @@ def check_update(kind,item):
         return
     
     log.info("Checking %s '%s' for containers to update"%(kind.lower(),item.metadata.name))
+
+    patches=None
 
     for container in item.spec.template.spec.containers:
         if container.name not in configs:
@@ -148,6 +155,28 @@ def check_update(kind,item):
             continue
 
         log.info("Container '%s' needs update from tag '%s' to '%s'"%(container.name,image.fulltag(),current_tag))
+        image.tag=current_tag
+        if patches is None:
+            patches={}
+        if not "containers" in patches:
+            patches["containers"]=[]
+        patches["containers"].append({
+            "name": container.name,
+            "image": image.shortspec()
+        })
+
+    if patches is None:
+        return None
+    
+    return {
+        "spec": {
+            "template": {
+                "spec": patches
+            }
+        }
+    }
+    
+
 
 
 if __name__== "__main__":

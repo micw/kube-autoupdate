@@ -100,7 +100,10 @@ def main():
     try:
         config.load_kube_config()
     except:
-        fail("Unable to load kube config")
+        try:
+            config.load_incluster_config()
+        except:
+            fail("Unable to load kube config or cluster servicerole")
 
     if args.action=="update":
         run_update()

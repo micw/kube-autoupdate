@@ -12,6 +12,8 @@ import argparse
 from time import sleep
 from image_spec import ImageSpec
 import webhook_server
+import certutil
+import base64
 
 def fail(message):
     print(message)
@@ -24,6 +26,50 @@ def getenv(key,default):
         return default
     fail("Missing env variable %s"%key)
 
+def inject_webhook_cert(namespace,name,cname,webhook,days,force):
+    corev1 = client.CoreV1Api()
+    overwrite=False
+    try:
+        corev1.read_namespaced_secret(name=name,namespace=namespace)
+        if force:
+            overwrite=True
+        else:
+            log.info("Secret %s/%s already exists"%(namespace,name))
+            return
+    except client.rest.ApiException:
+        pass
+    
+    key,cert=certutil.get_selfsigned_cert(cname,days)
+
+    secret=client.V1Secret()
+    secret.data={
+        "key.pem": base64.b64encode(key).decode(),
+        "cert.pem": base64.b64encode(cert).decode()
+    }
+    secret.type="Opaque"
+    secret.metadata=client.V1ObjectMeta()
+    secret.metadata.name=name
+
+    if overwrite:
+        log.info("Overwriting existing secret %s/%s"%(namespace,name))
+        corev1.patch_namespaced_secret(namespace=namespace,name=name,body=secret)
+    else:
+        log.info("Creating new secret %s/%s"%(namespace,name))
+        corev1.create_namespaced_secret(namespace=namespace,body=secret)
+
+    log.info("Injecting cert into webhook configuration %s/%s"%(namespace,webhook))
+    admissionreg = client.AdmissionregistrationV1beta1Api()
+    admissionreg.patch_mutating_webhook_configuration(webhook,{
+        "webhooks": [{
+            "name": "webhook.kube-autoupdate.io",
+            "clientConfig": {
+                "caBundle": base64.b64encode(cert).decode()
+            }
+        }]
+    })
+    
+
+
 def main():
     log.basicConfig(level=log.getLevelName(getenv("LOG_LEVEL","INFO")))
 
@@ -35,6 +81,14 @@ def main():
     webhook_parser.add_argument("--cert",required=True,help="Path to PEM encoded SSL certificate file")
     webhook_parser.add_argument("--key",required=True,help="Path to PEM encoded SSL key file")
     webhook_parser.add_argument("--port",type=int,default=8443, help="Server port")
+    certinject_parser=subparsers.add_parser("webhookcert",help="Create and install a ca and certificate for the webhok")
+    certinject_parser.add_argument("--namespace",default="default",help="Namespace for the ca+certificate")
+    certinject_parser.add_argument("--secret",required=True,help="Secret name for the ca+certificate")
+    certinject_parser.add_argument("--cname",required=True,help="Common name for the certificate")
+    certinject_parser.add_argument("--webhook",required=True,help="Name of the webhook configuration where the certificate will be injected")
+    certinject_parser.add_argument("--days",type=int,default=36500, help="Number of days, the ca+certificate is valid")
+    certinject_parser.add_argument("--force",action='store_true', help="Overwrite secret if it already exists")
+    certinject_parser.add_argument("--keep-running",action='store_true', help="Keep the process running after installing the cert")
     args = parser.parse_args()
 
     try:
@@ -45,6 +99,13 @@ def main():
         except:
             fail("Unable to load kube config or cluster servicerole")
 
+    if args.action=="webhookcert":
+        inject_webhook_cert(args.namespace,args.secret,args.cname,args.webhook,args.days,args.force)
+        if args.keep_running:
+            log.info("Done. Sleeping forever...")
+            while True:
+                sleep(100000)
+        quit()
 
     if args.action=="webhook":
         webhook_server.run(args.port,args.cert,args.key)

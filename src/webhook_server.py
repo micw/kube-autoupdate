@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+# TODO: avoid logging of health check request (or disable request logging completely)
 @app.route('/', methods=['GET'])
 def healthcheck():
     return "Webhook running"

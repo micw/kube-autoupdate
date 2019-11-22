@@ -8,6 +8,8 @@ schedule:
 
 webhook:
   enabled: true
+  replicas: 1
+  resources: {}
 
 image:
   repository: quay.io/micw/kube-autoupdate
@@ -17,10 +19,6 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-service:
-  type: ClusterIP
-  port: 80
 
 resources: {}
   # If you do want to specify resources, uncomment the following

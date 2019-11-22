@@ -1,4 +1,59 @@
 {{- if .Values.webhook.enabled }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}-webhook-cert-injector
+  labels:
+{{ include "kube-autoupdate.labels" . | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "kube-autoupdate.name" . }}-webhook-cert-injector
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "kube-autoupdate.name" . }}-webhook-cert-injector
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        enforce-redeploy: "{{ date "20060102150405" .Release.Time }}"
+    spec:
+      serviceAccountName: {{ include "kube-autoupdate.fullname" . }}
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /kube-autoupdate/run.py
+            - webhookcert
+            - "--namespace={{ .Release.Namespace }}"
+            - "--secret={{ include "kube-autoupdate.name" . }}-webhook-ssl"
+            - "--cname={{ include "kube-autoupdate.fullname" . }}-webhook.{{ .Release.Namespace }}.svc"
+            - "--webhook={{ include "kube-autoupdate.name" . }}-webhook"
+            - "--days=36500"
+            - "--force"
+            - "--keep-running"
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +61,7 @@ metadata:
   labels:
 {{ include "kube-autoupdate.labels" . | indent 4 }}
 spec:
-  replicas: 
+  replicas: {{ .Values.webhook.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "kube-autoupdate.name" . }}-webhook
@@ -48,7 +103,15 @@ spec:
               port: https
               scheme: HTTPS
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.webhook.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: "/certs"
+              name: certs
+              readOnly: true
+      volumes:
+        - name: certs
+          secret:
+            secretName: {{ include "kube-autoupdate.name" . }}-webhook-ssl
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -62,5 +125,51 @@ spec:
         {{- toYaml . | nindent 8 }}
     {{- end }}
 
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}-webhook
+  labels:
+{{ include "kube-autoupdate.labels" . | indent 4 }}
+spec:
+  ports:
+    - port: 8443
+      targetPort: https
+      protocol: TCP
+      name: https
+  selector:
+    app.kubernetes.io/name: {{ include "kube-autoupdate.name" . }}-webhook
+    app.kubernetes.io/instance: {{ .Release.Name }}
+
+---
+
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}-webhook
+  labels:
+{{ include "kube-autoupdate.labels" . | indent 4 }}
+webhooks:
+  - name: webhook.kube-autoupdate.io
+    rules:
+      - apiGroups:
+          - "apps"
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - "deployments"
+    failurePolicy: Fail
+    sideEffects: None
+    clientConfig:
+      service:
+        name: {{ include "kube-autoupdate.fullname" . }}-webhook
+        namespace: {{ .Release.Namespace }}
+        path: /
+        port: 8443
 
 {{ end }}

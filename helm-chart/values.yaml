@@ -6,9 +6,12 @@ schedule:
   delayMinutes: 60
   initialDelayMinutes: 0
 
+webhook:
+  enabled: true
+
 image:
   repository: quay.io/micw/kube-autoupdate
-  tag: latest
+  tag: admission-webhook
   pullPolicy: Always
 
 imagePullSecrets: []

@@ -4,7 +4,7 @@ RUN apk add --update --no-cache build-base python3-dev
 RUN apk add --update --no-cache libffi-dev openssl-dev
 
 ADD requirements.txt /requirements.txt
-RUN pip3 install --user kubernetes==10.0.1 python-dxf==7.5.2 semver==2.9.0
+RUN pip3 install --user -r /requirements.txt
 
 FROM python:3.8-alpine
 

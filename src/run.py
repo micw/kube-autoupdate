@@ -11,6 +11,7 @@ import os
 import argparse
 from time import sleep
 from image_spec import ImageSpec
+import webhook_server
 
 def fail(message):
     print(message)
@@ -30,6 +31,10 @@ def main():
     subparsers = parser.add_subparsers(required=True, dest='action')
     subparsers.add_parser("update",help="Check and execute updates now")
     subparsers.add_parser("schedule",help="Check and execute updates periodically")
+    webhook_parser=subparsers.add_parser("webhook",help="Start as admission webhook server")
+    webhook_parser.add_argument("--cert",required=True,help="Path to PEM encoded SSL certificate file")
+    webhook_parser.add_argument("--key",required=True,help="Path to PEM encoded SSL key file")
+    webhook_parser.add_argument("--port",type=int,default=8443, help="Server port")
     args = parser.parse_args()
 
     try:
@@ -39,6 +44,11 @@ def main():
             config.load_incluster_config()
         except:
             fail("Unable to load kube config or cluster servicerole")
+
+
+    if args.action=="webhook":
+        webhook_server.run(args.port,args.cert,args.key)
+        quit()
 
     if args.action=="update":
         run_update()

@@ -1,0 +1,66 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}-webhook
+  labels:
+{{ include "kube-autoupdate.labels" . | indent 4 }}
+spec:
+  replicas: 
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "kube-autoupdate.name" . }}-webhook
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "kube-autoupdate.name" . }}-webhook
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        enforce-redeploy: "{{ date "20060102150405" .Release.Time }}"
+    spec:
+      serviceAccountName: {{ include "kube-autoupdate.fullname" . }}
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /kube-autoupdate/run.py
+            - webhook
+            - --cert=/certs/cert.pem
+            - --key=/certs/key.pem
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: https
+              scheme: HTTPS
+          readinessProbe:
+            httpGet:
+              path: /
+              port: https
+              scheme: HTTPS
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+
+
+{{ end }}

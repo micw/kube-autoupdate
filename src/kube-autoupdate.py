@@ -110,10 +110,15 @@ def main():
         quit()
 
     if args.action=="schedule":
+        delay=int(getenv("SCHEDULE_DELAY_MINUTES",60))
+        initial_delay=int(getenv("SCHEDULE_INITIAL_DELAY_MINUTES",delay))
+        if (initial_delay>0):
+            print("Sleeping %s minutes"%initial_delay)
+            sleep(initial_delay*60)
         while True:
-            print("Sleeping 60 minutes")
-            sleep(3600)
             run_update()
+            print("Sleeping %s minutes"%delay)
+            sleep(delay*60)
 
 def run_update():    
     appsv1 = client.AppsV1Api()
@@ -121,8 +126,8 @@ def run_update():
     for item in ret.items:
         patch=check_update_and_create_patch("Deployment",item)
         if patch is not None:
-            result=appsv1.patch_namespaced_deployment(name=item.metadata.name,namespace=item.metadata.namespace,body=patch)
-            print(result)
+            appsv1.patch_namespaced_deployment(name=item.metadata.name,namespace=item.metadata.namespace,body=patch)
+
 
 
 

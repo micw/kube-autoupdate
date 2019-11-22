@@ -4,10 +4,10 @@ metadata:
   name: nginx-test-deployment
   labels:
     app: nginx
-    autoupdate/enabled: "true"
+    autoupdate/scheduled: "true"
   annotations:
     autoupdate/config: >
-      nginx: ^1\.11\.(\d+)-alpine$
+      nginx: ^1\.11\.\d+-alpine$
 spec:
   replicas: 1
   selector:

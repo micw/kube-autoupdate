@@ -10,72 +10,7 @@ from dxf import DXF
 import os
 import argparse
 from time import sleep
-
-class ImageSpec:
-
-    LEGACY_REGISTRY_HOST = "index.docker.io"
-    DEFAULT_REGISTRY_HOST = "registry.hub.docker.com"
-
-    def __init__(self, rawspec):
-        self.host=None
-        self.prefix=None
-        self.tag=None
-
-        self.repo=rawspec
-
-        # Image contains a tag?
-        if ":" in self.repo:
-            self.repo, self.tag = self.repo.rsplit(":",1)
-        
-        # Repo contains a prefix?
-        if "/" in self.repo:
-            self.prefix, self.repo = self.repo.rsplit("/",1)
-        
-        # prefix contains a host?
-        if self.prefix is not None and "/" in self.prefix:
-            self.host, self.prefix = self.repo.rsplit("/",1)
-
-    def __str__(self):
-        return self.shortspec()
-    
-    def fullhost(self):
-        if self.host is None or self.host == self.LEGACY_REGISTRY_HOST:
-            return self.DEFAULT_REGISTRY_HOST
-        return self.host
-
-    def fullprefix(self):
-        if self.prefix is None and self.fullhost() == self.DEFAULT_REGISTRY_HOST:
-            return "library"
-        return self.prefix
-
-    def fullrepo(self):
-        repo=self.repo
-        prefix=self.fullprefix()
-        if prefix is not None:
-            repo=prefix+"/"+repo
-        return repo
-
-    def fulltag(self):
-        if self.tag is None:
-            return "latest"
-        return self.tag
-
-    def shortspec(self):
-        return self.create_spec(self.host,self.prefix,self.repo,self.tag)
-
-    def fullspec(self):
-        return self.create_spec(self.fullhost(),self.fullprefix(),self.repo,self.fulltag())
-
-    def create_spec(self,host,prefix,repo,tag):
-        spec=repo
-        if prefix is not None:
-            spec=prefix+"/"+spec
-        if host is not None:
-            spec=host+"/"+spec
-        if tag is not None:
-            spec=spec+":"+tag
-        return spec
-
+from image_spec import ImageSpec
 
 def fail(message):
     print(message)
@@ -113,22 +48,22 @@ def main():
         delay=int(getenv("SCHEDULE_DELAY_MINUTES",60))
         initial_delay=int(getenv("SCHEDULE_INITIAL_DELAY_MINUTES",delay))
         if (initial_delay>0):
-            print("Sleeping %s minutes"%initial_delay)
+            log.info("Sleeping %s minutes"%initial_delay)
             sleep(initial_delay*60)
         while True:
             run_update()
-            print("Sleeping %s minutes"%delay)
+            log.info("Sleeping %s minutes"%delay)
             sleep(delay*60)
 
-def run_update():    
+def run_update():
+    log.info("Looking for deployments to update")
     appsv1 = client.AppsV1Api()
-    ret = appsv1.list_deployment_for_all_namespaces(watch=False,label_selector="autoupdate/enabled==true")
+    ret = appsv1.list_deployment_for_all_namespaces(watch=False,label_selector="autoupdate/scheduled==true")
     for item in ret.items:
         patch=check_update_and_create_patch("Deployment",item)
         if patch is not None:
             appsv1.patch_namespaced_deployment(name=item.metadata.name,namespace=item.metadata.namespace,body=patch)
-
-
+    log.info("All done")
 
 
 def registry_auth(dxf, response):

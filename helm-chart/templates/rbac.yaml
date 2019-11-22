@@ -1,0 +1,31 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["list","patch"]
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "kube-autoupdate.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "kube-autoupdate.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "kube-autoupdate.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io

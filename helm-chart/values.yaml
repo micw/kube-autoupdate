@@ -1,0 +1,36 @@
+# Default values for kube-autoupdate.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+schedule:
+  delayMinutes: 60
+  initialDelayMinutes: 0
+
+image:
+  repository: quay.io/micw/kube-autoupdate
+  tag: latest
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}
+  # If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

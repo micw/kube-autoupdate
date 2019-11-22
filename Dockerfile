@@ -10,6 +10,6 @@ FROM python:3.8-alpine
 
 RUN apk add --update --no-cache libffi openssl
 COPY --from=build /root/.local /root/.local
-ADD src/kube-autoupdate.py /kube-autoupdate.py
+ADD src/ /kube-autoupdate/
 
-CMD /kube-autoupdate.py schedule
+CMD /kube-autoupdate/run.py schedule

@@ -7,6 +7,9 @@ import re
 import semver
 import functools
 from dxf import DXF
+import os
+import argparse
+from time import sleep
 
 class ImageSpec:
 
@@ -78,14 +81,38 @@ def fail(message):
     print(message)
     exit(1)
 
+def getenv(key,default):
+    if key in os.environ:
+        return os.environ[key]
+    if default is not None:
+        return default
+    fail("Missing env variable %s"%key)
+
 def main():
-    log.basicConfig(level=log.INFO)
+    log.basicConfig(level=log.getLevelName(getenv("LOG_LEVEL","INFO")))
+
+    parser = argparse.ArgumentParser(description="Kube autoupdater")
+    subparsers = parser.add_subparsers(required=True, dest='action')
+    subparsers.add_parser("update",help="Check and execute updates now")
+    subparsers.add_parser("schedule",help="Check and execute updates periodically")
+    args = parser.parse_args()
 
     try:
         config.load_kube_config()
     except:
         fail("Unable to load kube config")
-    
+
+    if args.action=="update":
+        run_update()
+        quit()
+
+    if args.action=="schedule":
+        while True:
+            print("Sleeping 60 minutes")
+            sleep(3600)
+            run_update()
+
+def run_update():    
     appsv1 = client.AppsV1Api()
     ret = appsv1.list_deployment_for_all_namespaces(watch=False,label_selector="autoupdate/enabled==true")
     for item in ret.items:

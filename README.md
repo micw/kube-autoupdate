@@ -17,6 +17,7 @@ Current status: early development, minimal functions, little testing
 * Run as service and periodically update all labeled deployments
 * Run as admission controller to replace image tags on-the-fly on new deployments or upgrades
 * Easily deployable via helm chart
+* K3S based integration tests
 
 ## Implements features
 

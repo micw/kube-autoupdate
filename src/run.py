@@ -57,6 +57,7 @@ def inject_webhook_cert(namespace,name,cname,webhook,days,force):
         log.info("Creating new secret %s/%s"%(namespace,name))
         corev1.create_namespaced_secret(namespace=namespace,body=secret)
 
+    # Fixme: inject always if the config is updated
     log.info("Injecting cert into webhook configuration %s/%s"%(namespace,webhook))
     admissionreg = client.AdmissionregistrationV1beta1Api()
     admissionreg.patch_mutating_webhook_configuration(webhook,{

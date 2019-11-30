@@ -1,0 +1,27 @@
+language: generic
+fail_fast: true
+install:
+  - >
+    curl -s -L https://get.helm.sh/helm-v2.15.2-linux-amd64.tar.gz
+    | tar xfvz - --strip-components=1 linux-amd64/helm
+  - chmod 0700 helm
+  - echo -e "$GITHUB_SSH_KEY" | base64 -d > ~/.ssh/id_rsa
+  - chmod 0600 ~/.ssh/id_rsa
+script:
+  - set -e
+  - mkdir -p out
+  - mv helm-chart kube-autoupdate
+  - ./helm init --client-only
+  - git clone --branch gh-pages git@github.com:micw/kube-autoupdate.git repo
+  - ./helm package kube-autoupdate -d repo
+  - ./helm repo index --url https://micw.github.io/kube-autoupdate/ repo
+  - cd repo
+  - ./index.html.sh > index.html
+  - git add .
+  - git commit -m "Travis build"
+  - git push
+
+branches:
+  only:
+  - master
+

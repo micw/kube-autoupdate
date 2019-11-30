@@ -1,0 +1,13 @@
+apiVersion: v1
+entries:
+  kube-autoupdate:
+  - apiVersion: v1
+    appVersion: 0.0.1
+    created: "2019-11-30T11:15:10.139925403Z"
+    description: Automatic updates for your deployments
+    digest: 8c23704e14694d7ab715938b82149489ad3846c1782dcda8821491edbf6953a4
+    name: kube-autoupdate
+    urls:
+    - https://micw.github.io/kube-autoupdate/kube-autoupdate-0.0.1.tgz
+    version: 0.0.1
+generated: "2019-11-30T11:15:10.139512507Z"
